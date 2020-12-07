@@ -1,3 +1,5 @@
+# Run the actions in the container
+
 if [ -n "$PORT" ]; then
     wstunnel --server ws://0.0.0.0:$PORT &
 else
