@@ -11,3 +11,7 @@ if [ -n "$RCLONE_CFG" ]; then
     echo "$RCLONE_CFG" > rclone.conf
     rclone serve webdav --addr :9999 davsrv:/ --config ./rclone.conf &
 fi
+
+while true; do
+    sleep 1000
+done
