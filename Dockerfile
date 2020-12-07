@@ -1,11 +1,25 @@
-FROM alpine:latest
+FROM golang:alpine as build
 
-ADD . /code
+WORKDIR /
+COPY ./go.mod .
+COPY ./app.go .
+RUN go build -o /app app.go
+
+RUN echo "$(pwd; ls)"
+FROM alpine:latest
+RUN apk add rclone
+
 WORKDIR /code
 
+RUN adduser node --disabled-password
+
+COPY --chown="node:node" --from=build /app .
+
+RUN echo "$(pwd; ls)"
+
+ADD ./setup.sh .
 RUN sh setup.sh
 
-RUN adduser node --disabled-password
 USER node
 
-CMD sh init.sh
+CMD /code/app

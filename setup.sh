@@ -4,4 +4,3 @@ install -m755 /tmp/wstunnel /bin
 
 rm /tmp/* -rf
 
-apk add rclone
