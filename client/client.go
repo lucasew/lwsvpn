@@ -26,12 +26,16 @@ func init() {
 }
 
 func main() {
+    log.Printf("initializing...")
+    log.Printf("listening socks5 @ %s...", addr)
+    log.Printf("using server %s...", serverURL)
     l, err := net.Listen("tcp", addr)
     if err != nil {
         panic(err)
     }
     for {
         conn, err := l.Accept()
+        log.Printf("%s connected", conn.RemoteAddr().String())
         if err != nil {
             log.Printf("error accepting connection: %s", err.Error())
             continue
