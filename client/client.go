@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -33,9 +33,9 @@ func init() {
 
 func main() {
     defer errors.ReportPanic()
-    log.Printf("initializing...")
-    log.Printf("listening socks5 @ %s...", addr)
-    log.Printf("using server %s...", serverURL)
+    slog.Info("initializing...")
+    slog.Info("listening socks5", "addr", addr)
+    slog.Info("using server", "url", serverURL)
 
     go manageSession()
 
@@ -46,9 +46,9 @@ func main() {
     }
     for {
         conn, err := l.Accept()
-        log.Printf("%s connected", conn.RemoteAddr().String())
+        slog.Info("connected", "remote_addr", conn.RemoteAddr().String())
         if err != nil {
-            log.Printf("error accepting connection: %s", err.Error())
+            slog.Error("error accepting connection", "err", err.Error())
             errors.ReportError(err, "Error accepting connection")
             continue
         }
@@ -58,10 +58,10 @@ func main() {
 
 func manageSession() {
     for {
-        // log.Println("Connecting to server...") // Too verbose if looping fast?
+        // slog.Info("Connecting to server...") // Too verbose if looping fast?
         cfg, err := getWsConfig()
         if err != nil {
-            log.Printf("error ws config: %s", err.Error())
+            slog.Error("error ws config", "err", err.Error())
             errors.ReportError(err, "ws config error")
             time.Sleep(5 * time.Second)
             continue
@@ -69,7 +69,7 @@ func manageSession() {
 
         tcp, err := getProxiedConn(*cfg.Location)
         if err != nil {
-            log.Printf("getProxiedConn(): %s", err)
+            slog.Error("getProxiedConn()", "err", err)
             errors.ReportError(err, "getProxiedConn failed")
             time.Sleep(5 * time.Second)
             continue
@@ -77,7 +77,7 @@ func manageSession() {
 
         ws, err := websocket.NewClient(cfg, tcp)
         if err != nil {
-            log.Printf("websocket.NewClient(): %s", err)
+            slog.Error("websocket.NewClient()", "err", err)
             errors.ReportError(err, "websocket.NewClient failed")
             tcp.Close()
             time.Sleep(5 * time.Second)
@@ -96,7 +96,7 @@ func manageSession() {
             continue
         }
 
-        log.Println("Session established")
+        slog.Info("Session established")
         sessionLock.Lock()
         session = sess
         sessionLock.Unlock()
@@ -106,7 +106,7 @@ func manageSession() {
             time.Sleep(1 * time.Second)
         }
 
-        log.Println("Session disconnected")
+        slog.Info("Session disconnected")
         sessionLock.Lock()
         session = nil
         sessionLock.Unlock()
@@ -163,7 +163,7 @@ func handleConnection(conn net.Conn) {
     sessionLock.Unlock()
 
     if sess == nil || sess.IsClosed() {
-        log.Println("No active session")
+        slog.Warn("No active session")
         // Optionally wait for session?
         // For now, fail fast.
         return
@@ -171,7 +171,7 @@ func handleConnection(conn net.Conn) {
 
 	stream, err := sess.Open()
 	if err != nil {
-		log.Print("yamux.Session.Open(): ", err)
+		slog.Error("yamux.Session.Open()", "err", err)
         errors.ReportError(err, "yamux open stream failed")
 		return
 	}
@@ -183,7 +183,7 @@ func handleConnection(conn net.Conn) {
 
 	for i := 0; i < 2; i++ {
 		if err := <-c; err != nil {
-			log.Printf("io.Copy(): %s", err.Error())
+			slog.Error("io.Copy()", "err", err.Error())
             // errors.ReportError(err, "io.Copy failed")
 			return
 		}
