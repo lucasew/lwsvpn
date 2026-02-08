@@ -9,14 +9,20 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+    "sync"
+    "time"
 
 	"golang.org/x/net/proxy"
 	"golang.org/x/net/websocket"
+    "github.com/lucasew/wsvpn/pkg/errors"
+    "github.com/hashicorp/yamux"
 )
 
 var (
     addr string
     serverURL string
+    session *yamux.Session
+    sessionLock sync.Mutex
 )
 
 func init() {
@@ -26,11 +32,16 @@ func init() {
 }
 
 func main() {
+    defer errors.ReportPanic()
     log.Printf("initializing...")
     log.Printf("listening socks5 @ %s...", addr)
     log.Printf("using server %s...", serverURL)
+
+    go manageSession()
+
     l, err := net.Listen("tcp", addr)
     if err != nil {
+        errors.ReportError(err, "Failed to listen")
         panic(err)
     }
     for {
@@ -38,15 +49,67 @@ func main() {
         log.Printf("%s connected", conn.RemoteAddr().String())
         if err != nil {
             log.Printf("error accepting connection: %s", err.Error())
+            errors.ReportError(err, "Error accepting connection")
             continue
         }
+        go handleConnection(conn)
+    }
+}
+
+func manageSession() {
+    for {
+        // log.Println("Connecting to server...") // Too verbose if looping fast?
         cfg, err := getWsConfig()
         if err != nil {
             log.Printf("error ws config: %s", err.Error())
-            conn.Close()
+            errors.ReportError(err, "ws config error")
+            time.Sleep(5 * time.Second)
             continue
         }
-        go handleConnection(cfg, conn)
+
+        tcp, err := getProxiedConn(*cfg.Location)
+        if err != nil {
+            log.Printf("getProxiedConn(): %s", err)
+            errors.ReportError(err, "getProxiedConn failed")
+            time.Sleep(5 * time.Second)
+            continue
+        }
+
+        ws, err := websocket.NewClient(cfg, tcp)
+        if err != nil {
+            log.Printf("websocket.NewClient(): %s", err)
+            errors.ReportError(err, "websocket.NewClient failed")
+            tcp.Close()
+            time.Sleep(5 * time.Second)
+            continue
+        }
+
+        // Use default config with keepalive
+        conf := yamux.DefaultConfig()
+        conf.KeepAliveInterval = 30 * time.Second
+
+        sess, err := yamux.Client(ws, conf)
+        if err != nil {
+            errors.ReportError(err, "yamux client creation failed")
+            ws.Close()
+            time.Sleep(5 * time.Second)
+            continue
+        }
+
+        log.Println("Session established")
+        sessionLock.Lock()
+        session = sess
+        sessionLock.Unlock()
+
+        // Wait until session is closed
+        for !sess.IsClosed() {
+            time.Sleep(1 * time.Second)
+        }
+
+        log.Println("Session disconnected")
+        sessionLock.Lock()
+        session = nil
+        sessionLock.Unlock()
     }
 }
 
@@ -92,34 +155,41 @@ func getWsConfig() (*websocket.Config, error) {
     return config, nil
 }
 
-func handleConnection(wsConfig *websocket.Config, conn net.Conn) {
+func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	tcp, err := getProxiedConn(*wsConfig.Location)
-	if err != nil {
-		log.Print("getProxiedConn(): ", err)
-		return
-	}
+    sessionLock.Lock()
+    sess := session
+    sessionLock.Unlock()
 
-	ws, err := websocket.NewClient(wsConfig, tcp)
+    if sess == nil || sess.IsClosed() {
+        log.Println("No active session")
+        // Optionally wait for session?
+        // For now, fail fast.
+        return
+    }
+
+	stream, err := sess.Open()
 	if err != nil {
-		log.Print("websocket.NewClient(): ", err)
+		log.Print("yamux.Session.Open(): ", err)
+        errors.ReportError(err, "yamux open stream failed")
 		return
 	}
-	defer ws.Close()
+	defer stream.Close()
 
 	c := make(chan error, 2)
-	go iocopy(ws, conn, c)
-	go iocopy(conn, ws, c)
+	go iocopy(stream, conn, c)
+	go iocopy(conn, stream, c)
 
 	for i := 0; i < 2; i++ {
 		if err := <-c; err != nil {
 			log.Printf("io.Copy(): %s", err.Error())
+            // errors.ReportError(err, "io.Copy failed")
 			return
 		}
 		// If any of the sides closes the connection, we want to close the write channel.
 		closeWrite(conn)
-		closeWrite(tcp)
+		closeWrite(stream)
 	}
 }
 

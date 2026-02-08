@@ -1,1 +1,4 @@
 rclone.conf
+client_bin
+server_bin
+wsvpn
