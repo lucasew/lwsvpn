@@ -4,19 +4,13 @@ go = "1.23.0"
 [tasks]
 setup = "go mod download"
 
-[tasks."ci:version"]
-run = "go version"
-
-[tasks."ci:build"]
+[tasks.build]
 run = "go build ./..."
 
-[tasks."ci:test"]
+[tasks.test]
 run = "go test -v ./..."
 env = { PORT = "3000", SECRET = "testsecret" }
 
 [tasks.ci]
 description = "Run CI pipeline"
-depends = ["ci:version", "ci:build", "ci:test"]
-
-[tasks.test]
-alias = "ci"
+depends = ["build", "test"]
