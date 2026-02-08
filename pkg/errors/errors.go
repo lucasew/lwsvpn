@@ -2,7 +2,7 @@ package errors
 
 import (
     "fmt"
-    "log"
+    "log/slog"
     "runtime/debug"
 )
 
@@ -15,7 +15,7 @@ func ReportError(err error, context string) {
     }
 
     // Log the error to stderr (standard log)
-    log.Printf("[ERROR] %s: %v\nStack Trace:\n%s", context, err, debug.Stack())
+    slog.Error(context, "error", err, "stack", string(debug.Stack()))
 }
 
 // ReportPanic is a helper to recover from panics and report them.

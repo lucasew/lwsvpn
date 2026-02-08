@@ -14,6 +14,7 @@ import (
 	"golang.org/x/net/websocket"
     socks5 "github.com/armon/go-socks5"
     "github.com/lucasew/wsvpn/pkg/errors"
+    "github.com/lucasew/wsvpn/pkg/errdefs"
     "github.com/hashicorp/yamux"
 )
 
@@ -38,7 +39,7 @@ func init() {
     }
     secret = os.Getenv("SECRET")
     if secret == "" {
-        err = fmt.Errorf("SECRET is not defined")
+        err = fmt.Errorf("SECRET %w", errdefs.ErrNotDefined)
         errors.ReportError(err, "SECRET missing")
         panic(err)
     }
