@@ -1,2 +1,11 @@
 [tools]
 go = "1.23.0"
+
+[tasks]
+setup = "go mod download"
+ci = """
+    go version
+    go build ./...
+    go test -v ./...
+"""
+test = "mise run ci"
