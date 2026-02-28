@@ -6,50 +6,49 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
-	"strings"
 
+	"github.com/lucasew/wsvpn/pkg/errors"
 	"golang.org/x/net/proxy"
 	"golang.org/x/net/websocket"
 )
 
 var (
-    addr string
-    serverURL string
+	addr      string
+	serverURL string
 )
 
 func init() {
-    flag.StringVar(&addr, "addr", ":3000", "where to listen for socks5 connections")
-    flag.StringVar(&serverURL, "srv", "ws://localhost:1234/test", "where is the websocket server that provides everything")
-    flag.Parse()
+	flag.StringVar(&addr, "addr", ":3000", "where to listen for socks5 connections")
+	flag.StringVar(&serverURL, "srv", "ws://localhost:1234/test", "where is the websocket server that provides everything")
+	flag.Parse()
 }
 
 func main() {
-    log.Printf("initializing...")
-    log.Printf("listening socks5 @ %s...", addr)
-    log.Printf("using server %s...", serverURL)
-    l, err := net.Listen("tcp", addr)
-    if err != nil {
-        panic(err)
-    }
-    for {
-        conn, err := l.Accept()
-        log.Printf("%s connected", conn.RemoteAddr().String())
-        if err != nil {
-            log.Printf("error accepting connection: %s", err.Error())
-            continue
-        }
-        cfg, err := getWsConfig()
-        if err != nil {
-            log.Printf("error ws config: %s", err.Error())
-            conn.Close()
-            continue
-        }
-        go handleConnection(cfg, conn)
-    }
-}
+	log.Printf("initializing...")
+	log.Printf("listening socks5 @ %s...", addr)
+	log.Printf("using server %s...", serverURL)
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Printf("error accepting connection: %s", err.Error())
+			continue
+		}
+		log.Printf("%s connected", conn.RemoteAddr().String())
 
+		cfg, err := getWsConfig()
+		if err != nil {
+			log.Printf("error ws config: %s", err.Error())
+			errors.ReportError(conn.Close())
+			continue
+		}
+		go handleConnection(cfg, conn)
+	}
+}
 
 func getProxiedConn(turl url.URL) (net.Conn, error) {
 	// We first try to get a Socks5 proxied conncetion. If that fails, we're moving on to http{s,}_proxy.
@@ -58,9 +57,9 @@ func getProxiedConn(turl url.URL) (net.Conn, error) {
 		return dialer.Dial("tcp", turl.Host)
 	}
 
-	turl.Scheme = strings.Replace(turl.Scheme, "ws", "http", 1)
-	proxyURL, err := http.ProxyFromEnvironment(&http.Request{URL: &turl})
-	if proxyURL == nil {
+	req := &http.Request{URL: &turl}
+	proxyURL, err := http.ProxyFromEnvironment(req)
+	if err != nil || proxyURL == nil {
 		return net.Dial("tcp", turl.Host)
 	}
 
@@ -69,31 +68,33 @@ func getProxiedConn(turl url.URL) (net.Conn, error) {
 		return nil, err
 	}
 
-	cc := httputil.NewProxyClientConn(p, nil)
-	_, err = cc.Do(&http.Request{
+	req = &http.Request{
 		Method: "CONNECT",
-		URL:    &url.URL{},
+		URL:    &url.URL{Opaque: turl.Host},
 		Host:   turl.Host,
-	})
-	if err != nil && err != httputil.ErrPersistEOF {
+	}
+
+	err = req.Write(p)
+	if err != nil {
+		errors.ReportError(p.Close())
 		return nil, err
 	}
 
-	conn, _ := cc.Hijack()
-
-	return conn, nil
+	return p, nil
 }
 
 func getWsConfig() (*websocket.Config, error) {
-    config, err := websocket.NewConfig(serverURL, "http://localhost/")
-    if err != nil {
-        return nil, err
-    }
-    return config, nil
+	config, err := websocket.NewConfig(serverURL, "http://localhost/")
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
 func handleConnection(wsConfig *websocket.Config, conn net.Conn) {
-	defer conn.Close()
+	defer func() {
+		errors.ReportError(conn.Close())
+	}()
 
 	tcp, err := getProxiedConn(*wsConfig.Location)
 	if err != nil {
@@ -106,7 +107,9 @@ func handleConnection(wsConfig *websocket.Config, conn net.Conn) {
 		log.Print("websocket.NewClient(): ", err)
 		return
 	}
-	defer ws.Close()
+	defer func() {
+		errors.ReportError(ws.Close())
+	}()
 
 	c := make(chan error, 2)
 	go iocopy(ws, conn, c)
@@ -129,7 +132,7 @@ type closeable interface {
 
 func closeWrite(conn net.Conn) {
 	if closeme, ok := conn.(closeable); ok {
-		closeme.CloseWrite()
+		errors.ReportError(closeme.CloseWrite())
 	}
 }
 
