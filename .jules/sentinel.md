@@ -1,0 +1,1 @@
+- 2026-03-10: Swallowed and scattered log.Printf/panics mask underlying downstream bugs and vulnerabilities.
