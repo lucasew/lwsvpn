@@ -2,7 +2,9 @@ FROM golang:alpine@sha256:ac09a5f469f307e5da71e766b0bd59c9c49ea460a528cc3e668651
 
 WORKDIR /
 COPY ./go.mod .
+COPY ./go.sum .
 COPY ./app.go .
+COPY ./pkg ./pkg
 RUN go build -o /app app.go
 
 RUN echo "$(pwd; ls)"
