@@ -5,7 +5,9 @@ COPY ./go.mod .
 COPY ./go.sum .
 COPY ./app.go .
 COPY ./pkg ./pkg
+COPY ./client ./client
 RUN go build -o /app app.go
+RUN cd client && go build -o /client client.go
 
 RUN echo "$(pwd; ls)"
 FROM alpine:latest@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412
