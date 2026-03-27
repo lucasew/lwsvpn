@@ -2,54 +2,62 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
+
+	"github.com/lucasew/wsvpn/pkg/errors"
 
 	"golang.org/x/net/proxy"
 	"golang.org/x/net/websocket"
 )
 
 var (
-    addr string
-    serverURL string
+	addr      string
+	serverURL string
 )
 
 func init() {
-    flag.StringVar(&addr, "addr", ":3000", "where to listen for socks5 connections")
-    flag.StringVar(&serverURL, "srv", "ws://localhost:1234/test", "where is the websocket server that provides everything")
-    flag.Parse()
+	flag.StringVar(&addr, "addr", ":3000", "where to listen for socks5 connections")
+	flag.StringVar(&serverURL, "srv", "ws://localhost:1234/test", "where is the websocket server that provides everything")
+	flag.Parse()
 }
 
 func main() {
-    log.Printf("initializing...")
-    log.Printf("listening socks5 @ %s...", addr)
-    log.Printf("using server %s...", serverURL)
-    l, err := net.Listen("tcp", addr)
-    if err != nil {
-        panic(err)
-    }
-    for {
-        conn, err := l.Accept()
-        log.Printf("%s connected", conn.RemoteAddr().String())
-        if err != nil {
-            log.Printf("error accepting connection: %s", err.Error())
-            continue
-        }
-        cfg, err := getWsConfig()
-        if err != nil {
-            log.Printf("error ws config: %s", err.Error())
-            conn.Close()
-            continue
-        }
-        go handleConnection(cfg, conn)
-    }
-}
+	log.Printf("initializing...")
+	log.Printf("listening socks5 @ %s...", addr)
+	log.Printf("using server %s...", serverURL)
 
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		errors.ReportError(fmt.Errorf("failed to listen on tcp %s: %w", addr, err))
+		os.Exit(1)
+	}
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			errors.ReportError(fmt.Errorf("error accepting connection: %w", err))
+			continue
+		}
+		log.Printf("%s connected", conn.RemoteAddr().String())
+
+		cfg, err := getWsConfig()
+		if err != nil {
+			errors.ReportError(fmt.Errorf("error building ws config: %w", err))
+			conn.Close()
+			continue
+		}
+
+		go handleConnection(cfg, conn)
+	}
+}
 
 func getProxiedConn(turl url.URL) (net.Conn, error) {
 	// We first try to get a Socks5 proxied conncetion. If that fails, we're moving on to http{s,}_proxy.
@@ -85,11 +93,11 @@ func getProxiedConn(turl url.URL) (net.Conn, error) {
 }
 
 func getWsConfig() (*websocket.Config, error) {
-    config, err := websocket.NewConfig(serverURL, "http://localhost/")
-    if err != nil {
-        return nil, err
-    }
-    return config, nil
+	config, err := websocket.NewConfig(serverURL, "http://localhost/")
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
 func handleConnection(wsConfig *websocket.Config, conn net.Conn) {
@@ -97,13 +105,13 @@ func handleConnection(wsConfig *websocket.Config, conn net.Conn) {
 
 	tcp, err := getProxiedConn(*wsConfig.Location)
 	if err != nil {
-		log.Print("getProxiedConn(): ", err)
+		errors.ReportError(fmt.Errorf("getProxiedConn(): %w", err))
 		return
 	}
 
 	ws, err := websocket.NewClient(wsConfig, tcp)
 	if err != nil {
-		log.Print("websocket.NewClient(): ", err)
+		errors.ReportError(fmt.Errorf("websocket.NewClient(): %w", err))
 		return
 	}
 	defer ws.Close()
@@ -114,7 +122,7 @@ func handleConnection(wsConfig *websocket.Config, conn net.Conn) {
 
 	for i := 0; i < 2; i++ {
 		if err := <-c; err != nil {
-			log.Printf("io.Copy(): %s", err.Error())
+			errors.ReportError(fmt.Errorf("io.Copy() during stream replication: %w", err))
 			return
 		}
 		// If any of the sides closes the connection, we want to close the write channel.
@@ -129,7 +137,10 @@ type closeable interface {
 
 func closeWrite(conn net.Conn) {
 	if closeme, ok := conn.(closeable); ok {
-		closeme.CloseWrite()
+		err := closeme.CloseWrite()
+		if err != nil {
+			errors.ReportError(fmt.Errorf("failed to CloseWrite connection: %w", err))
+		}
 	}
 }
 

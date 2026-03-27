@@ -1,0 +1,8 @@
+[tools]
+go = "1.21.3"
+
+[tasks.ci]
+run = "go build ./..."
+
+[tasks.test]
+run = "go test ./..."
