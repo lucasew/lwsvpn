@@ -1,0 +1,1 @@
+- 2026-03-28: [Critical/High: Always check network connection acceptance errors before dereferencing connection pointers to prevent DoS panics.]

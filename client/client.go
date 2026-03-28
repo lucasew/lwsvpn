@@ -35,11 +35,11 @@ func main() {
     }
     for {
         conn, err := l.Accept()
-        log.Printf("%s connected", conn.RemoteAddr().String())
         if err != nil {
             log.Printf("error accepting connection: %s", err.Error())
             continue
         }
+        log.Printf("%s connected", conn.RemoteAddr().String())
         cfg, err := getWsConfig()
         if err != nil {
             log.Printf("error ws config: %s", err.Error())
