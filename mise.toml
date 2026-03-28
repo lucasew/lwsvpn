@@ -1,0 +1,8 @@
+[tools]
+go = "1.23.0"
+
+[tasks."test:*"]
+run = "go test ./... && go build ./..."
+
+[tasks.test]
+depends = ["test:*"]
