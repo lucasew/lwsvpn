@@ -38,13 +38,14 @@ jobs:
             git add .
             git commit -m "chore: update generated files"
             git push origin "$branch_name"
-            gh pr create --title "chore: update generated files" --body "Automated PR to update generated files" --base "${{ github.head_ref || github.ref_name }}" --head "$branch_name"
+            gh pr create --title "chore: update generated files" --body "Automated PR to update generated files" --base "$PR_BASE" --head "$branch_name"
             echo "created_pr=true" >> $GITHUB_OUTPUT
           else
             echo "created_pr=false" >> $GITHUB_OUTPUT
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BASE: ${{ github.head_ref || github.ref_name }}
 
       - name: Run CI
         run: mise run ci

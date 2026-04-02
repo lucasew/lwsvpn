@@ -5,6 +5,9 @@ go = "1.23.0"
 [tasks.codegen]
 depends = ["codegen:*"]
 
+[tasks."codegen:go"]
+run = "go generate ./..."
+
 [tasks.install]
 depends = ["install:*"]
 
