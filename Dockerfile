@@ -11,7 +11,7 @@ RUN apk add rclone
 
 WORKDIR /code
 
-RUN adduser node --disabled-password
+RUN adduser -D node
 
 COPY --chown="node:node" --from=build /app .
 
