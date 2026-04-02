@@ -1,7 +1,7 @@
 FROM golang:alpine@sha256:ac09a5f469f307e5da71e766b0bd59c9c49ea460a528cc3e6686513d64a6f1fb as build
 
 WORKDIR /
-COPY ./go.mod .
+COPY ./go.mod ./go.sum ./
 COPY ./app.go .
 RUN go build -o /app app.go
 
