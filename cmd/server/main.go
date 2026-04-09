@@ -72,7 +72,9 @@ func (s *Server) SpawnProgram(name string, args ...string) {
 
 func (s *Server) RootHTTPHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, "Hello, world")
+	if _, err := fmt.Fprintln(w, "Hello, world"); err != nil {
+		errors.ReportError(fmt.Errorf("failed to write response: %w", err))
+	}
 }
 
 func (s *Server) LogHTTPHandler(w http.ResponseWriter, r *http.Request) {

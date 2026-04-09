@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 export TAG=wsvpn
 export PORT=1025
 
