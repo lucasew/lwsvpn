@@ -10,22 +10,41 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"sync"
+
+	socks5 "github.com/armon/go-socks5"
 	"golang.org/x/net/websocket"
-    socks5 "github.com/armon/go-socks5"
 )
 
 const (
-    wsHttpPort = 3000
+	wsHttpPort = 3000
 )
 
 var (
-    err error
-    port int
-    secret string
-    ctx context.Context
-    logfile *bytes.Buffer
-    socksSrv *socks5.Server
+	err      error
+	port     int
+	secret   string
+	ctx      context.Context
+	logfile  *SafeBuffer
+	socksSrv *socks5.Server
 )
+
+type SafeBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (s *SafeBuffer) Read(p []byte) (n int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Read(p)
+}
+
+func (s *SafeBuffer) Write(p []byte) (n int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
 
 func init() {
     port, err = strconv.Atoi(os.Getenv("PORT"))
@@ -36,7 +55,7 @@ func init() {
     if secret == "" {
         panic("SECRET is not defined")
     }
-    logfile = bytes.NewBuffer([]byte{})
+    logfile = &SafeBuffer{}
     log.SetOutput(logfile)
 
     socksSrv, err = socks5.New(&socks5.Config{})

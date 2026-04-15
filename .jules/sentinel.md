@@ -1,0 +1,1 @@
+- 2025-04-15: Data races on shared buffers (like bytes.Buffer) across HTTP handlers and goroutines cause DoS panics; always use thread-safe wrappers or channels.
