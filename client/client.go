@@ -15,41 +15,40 @@ import (
 )
 
 var (
-    addr string
-    serverURL string
+	addr      string
+	serverURL string
 )
 
 func init() {
-    flag.StringVar(&addr, "addr", ":3000", "where to listen for socks5 connections")
-    flag.StringVar(&serverURL, "srv", "ws://localhost:1234/test", "where is the websocket server that provides everything")
-    flag.Parse()
+	flag.StringVar(&addr, "addr", ":3000", "where to listen for socks5 connections")
+	flag.StringVar(&serverURL, "srv", "ws://localhost:1234/test", "where is the websocket server that provides everything")
+	flag.Parse()
 }
 
 func main() {
-    log.Printf("initializing...")
-    log.Printf("listening socks5 @ %s...", addr)
-    log.Printf("using server %s...", serverURL)
-    l, err := net.Listen("tcp", addr)
-    if err != nil {
-        panic(err)
-    }
-    for {
-        conn, err := l.Accept()
-        log.Printf("%s connected", conn.RemoteAddr().String())
-        if err != nil {
-            log.Printf("error accepting connection: %s", err.Error())
-            continue
-        }
-        cfg, err := getWsConfig()
-        if err != nil {
-            log.Printf("error ws config: %s", err.Error())
-            conn.Close()
-            continue
-        }
-        go handleConnection(cfg, conn)
-    }
+	log.Printf("initializing...")
+	log.Printf("listening socks5 @ %s...", addr)
+	log.Printf("using server %s...", serverURL)
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
+	for {
+		conn, err := l.Accept()
+		log.Printf("%s connected", conn.RemoteAddr().String())
+		if err != nil {
+			log.Printf("error accepting connection: %s", err.Error())
+			continue
+		}
+		cfg, err := getWsConfig()
+		if err != nil {
+			log.Printf("error ws config: %s", err.Error())
+			conn.Close()
+			continue
+		}
+		go handleConnection(cfg, conn)
+	}
 }
-
 
 func getProxiedConn(turl url.URL) (net.Conn, error) {
 	// We first try to get a Socks5 proxied conncetion. If that fails, we're moving on to http{s,}_proxy.
@@ -85,11 +84,11 @@ func getProxiedConn(turl url.URL) (net.Conn, error) {
 }
 
 func getWsConfig() (*websocket.Config, error) {
-    config, err := websocket.NewConfig(serverURL, "http://localhost/")
-    if err != nil {
-        return nil, err
-    }
-    return config, nil
+	config, err := websocket.NewConfig(serverURL, "http://localhost/")
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
 func handleConnection(wsConfig *websocket.Config, conn net.Conn) {
