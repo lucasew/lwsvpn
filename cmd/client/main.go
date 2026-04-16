@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 
+	pkgerrors "github.com/lucasew/wsvpn/pkg/errors"
+
 	"golang.org/x/net/proxy"
 	"golang.org/x/net/websocket"
 )
@@ -31,18 +33,18 @@ func main() {
     log.Printf("using server %s...", serverURL)
     l, err := net.Listen("tcp", addr)
     if err != nil {
-        panic(err)
+        pkgerrors.ReportFatal(err, "failed to listen on TCP address")
     }
     for {
         conn, err := l.Accept()
-        log.Printf("%s connected", conn.RemoteAddr().String())
         if err != nil {
-            log.Printf("error accepting connection: %s", err.Error())
+            pkgerrors.ReportError(err, "error accepting connection")
             continue
         }
+        log.Printf("%s connected", conn.RemoteAddr().String())
         cfg, err := getWsConfig()
         if err != nil {
-            log.Printf("error ws config: %s", err.Error())
+            pkgerrors.ReportError(err, "error getting ws config")
             conn.Close()
             continue
         }
@@ -97,13 +99,13 @@ func handleConnection(wsConfig *websocket.Config, conn net.Conn) {
 
 	tcp, err := getProxiedConn(*wsConfig.Location)
 	if err != nil {
-		log.Print("getProxiedConn(): ", err)
+		pkgerrors.ReportError(err, "getProxiedConn() failed")
 		return
 	}
 
 	ws, err := websocket.NewClient(wsConfig, tcp)
 	if err != nil {
-		log.Print("websocket.NewClient(): ", err)
+		pkgerrors.ReportError(err, "websocket.NewClient() failed")
 		return
 	}
 	defer ws.Close()
@@ -114,7 +116,7 @@ func handleConnection(wsConfig *websocket.Config, conn net.Conn) {
 
 	for i := 0; i < 2; i++ {
 		if err := <-c; err != nil {
-			log.Printf("io.Copy(): %s", err.Error())
+			pkgerrors.ReportError(err, "io.Copy() error")
 			return
 		}
 		// If any of the sides closes the connection, we want to close the write channel.
