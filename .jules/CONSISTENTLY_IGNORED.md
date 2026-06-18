@@ -1,23 +1,23 @@
+## IGNORE: Moving Entrypoints to cmd/ Directory
+
+**- Pattern:** Moving or renaming the main entrypoints (`app.go` to `cmd/server/main.go` and `client/client.go` to `cmd/client/main.go`).
+**- Justification:** The project specifically maintains `app.go` as the server entrypoint and `client/client.go` as the client entrypoint. They should not be moved to a `cmd/` structure.
+**- Files Affected:** `app.go`, `client/client.go`, `cmd/server/main.go`, `cmd/client/main.go`
+
 ## IGNORE: Inadequate Context in Centralized Error Reporting
 
-**- Pattern:** Implementing the centralized error reporting function (e.g., `pkg/errors.ReportError`) using only basic logging (like `log.Printf`) without capturing stack traces or relevant metadata.
-**- Justification:** Global instructions mandate that centralized error reporters log errors with enough context (message, stack, relevant metadata) to support debugging and Sentry-like observability.
+**- Pattern:** Implementing the centralized error reporting function (e.g., `pkg/errors.ReportError`) using basic logging (like `log.Printf`) without capturing stack traces or relevant metadata.
+**- Justification:** Centralized error reporters must log errors with enough context (message, stack trace, relevant metadata) to support debugging and Sentry-like observability.
 **- Files Affected:** `pkg/errors/errors.go`
 
-## IGNORE: Downgrading CI Action Dependencies
+## IGNORE: Downgrading Dependencies
 
-**- Pattern:** Creating or modifying GitHub Actions workflows with downgraded dependency versions, specifically `actions/checkout@v4` and `jdx/mise-action@v2`.
-**- Justification:** The project's global directives explicitly forbid downgrading dependencies (such as actions/checkout to v4 or mise action to v2) unless explicitly requested.
+**- Pattern:** Downgrading GitHub Actions dependencies, such as using `actions/checkout@v4` instead of a newer pinned version, or using `jdx/mise-action@v2`.
+**- Justification:** The project's global directives explicitly forbid downgrading dependencies unless explicitly requested.
 **- Files Affected:** `.github/workflows/autorelease.yml`
-
-## IGNORE: Hallucinating Project Conventions
-
-**- Pattern:** Inventing arbitrary or contradictory project rules (e.g., dictating whether to use wildcards or explicit subtasks in `mise.toml`) and attempting to enforce them by creating or modifying `AGENTS.md`.
-**- Justification:** Global directives prohibit hallucinating conventions. Agents must not fabricate rules to populate convention files; rules must be derived from actual, proven repository standards.
-**- Files Affected:** `AGENTS.md`
 
 ## IGNORE: Scope Creep and Unrelated Bundling
 
-**- Pattern:** Bundling "nice to have" formatting changes (e.g., converting spaces to tabs), unrelated file restructurings, or global configuration additions into PRs designated for targeted bug fixes or refactors.
-**- Justification:** Global instructions require strict scope discipline and small, atomic, reversible diffs. PRs must execute only the explicitly requested outcome.
-**- Files Affected:** `client/client.go`, `app.go`, `AGENTS.md`
+**- Pattern:** Bundling repository-wide global setup or convention files (e.g., `AGENTS.md`, `mise.toml`, `.github/workflows/autorelease.yml`) into PRs meant for specific bug fixes or refactors.
+**- Justification:** PRs must maintain strict scope discipline and execute only the explicitly requested outcome without bundling global or unrelated structural changes.
+**- Files Affected:** `AGENTS.md`, `mise.toml`, `.github/workflows/autorelease.yml`
