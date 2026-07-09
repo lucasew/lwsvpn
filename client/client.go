@@ -60,6 +60,9 @@ func getProxiedConn(turl url.URL) (net.Conn, error) {
 
 	turl.Scheme = strings.Replace(turl.Scheme, "ws", "http", 1)
 	proxyURL, err := http.ProxyFromEnvironment(&http.Request{URL: &turl})
+	if err != nil {
+		return nil, err
+	}
 	if proxyURL == nil {
 		return net.Dial("tcp", turl.Host)
 	}
